@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>FCC | Data Vis 01 - Bar Chart</title>
+    <style>
+      .svgcolor {
+        background-color: snow;
+      }
+
+      .parent {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      body {
+        background-color: snow;
+      }
+
+      .y-text {
+        font-size: 0.8rem;
+        font: weight 500;
+      }
+      .x-text {
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="parent">
+      <h1 style="text-align: center" id="title">
+        Doping in Professional Bicycle Racing
+      </h1>
+      <h2 style="text-align: center" id="title">
+        35 Fastest times up Alpe d'Huez
+      </h2>
+
+      <div class="chart"></div>
+    </div>
+
+    <div id="mocha"></div>
+
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+
+    <script>
+      const freeCodeCampURl =
+        "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json";
+
+      fetch(freeCodeCampURl)
+        .then(res => res.json())
+        .then(jsonData => {
+          //let toString = JSON.stringify(jsonData, null, 2)
+          //console.log("TCL: toString", toString)
+
+          /* jsonData structure: [
+            {
+                Doping: ""
+      Name: "Nairo Quintana"
+      Nationality: "COL"
+      Place: 35
+      Seconds: 2390
+      Time: "39:50"
+      URL: ""
+      Year: 2013
+            },...
+        ]
+                */
+
+          console.log(jsonData);
+
+          console.log(typeof jsonData[1].Year);
+
+          const minuteParser = d3.timeParse("%M:%S");
+
+          //converting strings to dates
+          let dataChanged = jsonData.map(el => {
+            let newObj = {};
+            Object.assign(newObj, el);
+
+            newObj.Time = minuteParser(el.Time);
+            return newObj;
+          });
+
+          console.log(dataChanged);
+
+          let doping = dataChanged.filter(el => el.Doping !== "");
+
+          console.log(doping);
+
+          let noDoping = dataChanged.filter(el => el.Doping === "");
+
+          console.log(noDoping);
+
+          const margin = { top: 20, right: 20, bottom: 30, left: 65 },
+            //height & weight of bar chart itself,
+            // height & weight of svg will include this margins
+            w = 900 - margin.left - margin.right,
+            h = 600 - margin.top - margin.bottom;
+
+          //scales
+
+          const xScale = d3
+            .scaleLinear()
+            //!!! jsonData is mapped to get access to all years
+            .domain([1993, 2016])
+            .range([0, w]);
+
+          const yScale = d3
+            .scaleLinear()
+            .domain([
+              d3.min(dataChanged, d => d.Time),
+              d3.max(dataChanged, d => d.Time)
+            ])
+            .range([0, h]);
+
+          //adding svg and g
+
+          const svg = d3
+            .select(".chart")
+            .append("svg")
+            .attr("width", w + margin.left + margin.right)
+            .attr("height", h + margin.top + margin.bottom)
+            .attr("class", "svgcolor");
+
+          // append a 'group' element to 'svg'
+          // moves the 'group' element to the top left margin
+          const gElement = svg.append("g").attr(
+            "transform",
+            //"translate(" + margin.left + "," + margin.top + ")"
+            `translate(${margin.left},${margin.top})`
+          );
+
+          const gElement2 = svg
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+          ///adding circles | Doping
+
+          gElement
+            .selectAll("circle")
+            .data(doping)
+            .enter()
+            .append("circle")
+            //.attr('x', (d,i) => i*8)
+            .attr("x", (d, i) => xScale(d.Year))
+            .attr("y", d => yScale(d.Time))
+            .attr("cx", d => xScale(d.Year))
+            .attr("cy", d => yScale(d.Time))
+            .attr("r", d => 5)
+            .attr("fill", "orange")
+            .attr("class", "circle")
+
+            //tooltip1
+            .append("title")
+            .attr("id", "tooltip")
+            .text((d, i) => {
+              return (
+                `${d.Name}: ${d.Nationality}` +
+                "\n" +
+                `Year: ${d.Year}, Time: ${d3.timeFormat("%M:%S")(d.Time)}` +
+                "\n" +
+                `${d.Doping}`
+              );
+            });
+
+          //adding circles | noDoping
+          gElement2
+            .selectAll("circle")
+            .data(noDoping)
+            .enter()
+            .append("circle")
+            .attr("cx", d => xScale(d.Year))
+            .attr("cy", d => yScale(d.Time))
+            .attr("r", d => 5)
+            .attr("fill", "green")
+            .attr("class", "dot")
+
+            //tooltip2
+            .append("title")
+            .attr("id", "tooltip")
+            .text((d, i) => {
+              //!! d3.timeFormat to properly display minutes (from dates to string this time)
+              return (
+                `${d.Name}: ${d.Nationality}` +
+                "\n" +
+                `Year: ${d.Year}, Time: ${d3.timeFormat("%M:%S")(d.Time)}`
+              );
+            });
+
+          //axes
+
+          const xAxis = d3
+            .axisBottom(xScale)
+            //!!! to display e.g 1999 instead of 1.999
+            .tickFormat(d3.format("d"));
+          //to change displayed ticks, for the range
+          let startDate = new Date(1900, 0, 1, 0, 37, 00);
+          let endDate = new Date(1900, 0, 1, 0, 40, 00);
+
+          const yAxis = d3
+            .axisLeft(yScale)
+
+            //!! changing displayed ticks
+            .tickValues(d3.range(startDate, endDate, 15000))
+            //to display ticks formatted as strings
+            .tickFormat(function(d) {
+              return d3.timeFormat("%M:%S")(d);
+            });
+
+          gElement
+            .append("g")
+            .attr("transform", "translate(0, " + h + ")")
+            .call(xAxis)
+            .attr("id", "x-axis");
+
+          gElement
+            .append("g")
+            .call(yAxis)
+            .attr("id", "y-axis");
+
+          //adding horizontal labels
+          gElement
+            .append("text")
+            .attr("y", 0 + 0.5 * h)
+            .attr("x", w - margin.right - 120)
+            .attr("dy", "1.5em")
+            //.style("text-anchor", "middle")
+            .text("No doping allegations")
+            .attr("class", "x-text")
+            .attr("id", "legend");
+
+          gElement
+            .append("text")
+            .attr("y", 0 + 0.5 * h + 25)
+            .attr("x", w - margin.right - 165)
+            .attr("dy", "1.5em")
+            .text("Riders with doping allegations")
+            .attr("class", "x-text")
+            .attr("id", "legend");
+
+          gElement
+            .append("rect")
+            .attr("y", 0 + 0.5 * h + 8)
+            .attr("x", w - margin.right)
+            .attr("height", 15)
+            .attr("width", 15)
+            .attr("fill", "green");
+          //.attr("dy", "1.5em")
+
+          gElement
+            .append("rect")
+            .attr("y", 0 + 0.5 * h + 32)
+            .attr("x", w - margin.right)
+            .attr("height", 15)
+            .attr("width", 15)
+            .attr("fill", "orange");
+
+          //adding vertical label
+          gElement2
+            .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -70)
+            .attr("x", 0 - h / 2)
+            .attr("dy", "1.5em")
+            .text("Time in Minutes")
+            .attr("class", "y-text");
+        });
+    </script>
+  </body>
+</html>
